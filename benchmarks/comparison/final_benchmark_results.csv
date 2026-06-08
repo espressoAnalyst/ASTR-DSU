@@ -1,0 +1,7 @@
+algorithm,dataset,execution_time_sec,ram_used_mb,total_components,total_edges
+basic,small_graph.csv,0.0,0.0117,8,25
+basic,small_graph.csv,0.0,0.0117,8,25
+basic,small_graph.csv,0.0,0.0117,8,25
+optimized_sequential,small,0.0,0.0235,8,25
+optimized_sequential,small,0.0,0.0937,8,25
+optimized_sequential,small,0.0,0.0234,8,25
