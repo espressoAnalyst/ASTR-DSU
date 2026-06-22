@@ -7,7 +7,6 @@ def stream_edges_from_disk(file_path: str) -> Generator[Tuple[str, str], None, N
     Actually reads the massive dataset from the physical file on your disk,
     yielding one pair at a time to prevent RAM overload.
     """
-    # We remove the hardcoded 'mock_data' array and open the real file.
     with open(file_path, 'r') as file:
         for line in file:
             # Skip empty lines just in case
