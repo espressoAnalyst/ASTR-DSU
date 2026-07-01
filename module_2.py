@@ -2,20 +2,20 @@ import os
 import numpy as np
 
 class GlobalArrayDSU:
-    def __init__(self, n_path: str, parent_path: str, size_path: str):
+    def __init__(self, N: int, parent_path: str, size_path: str):
         """
         Initializes the DSU by memory-mapping arrays directly from disk.
         Safely handles pre-created 0-byte (empty) array files.
         """
-        self.n_path = n_path
+        self.N = N
         self.parent_path = parent_path
         self.size_path = size_path
 
         # 1. N is strictly loaded from the pre-specified file path
-        if not os.path.exists(n_path) or os.path.getsize(n_path) == 0:
-            raise ValueError(f"The file for N ({n_path}) must exist and contain valid data.")
+        # if not os.path.exists(n_path) or os.path.getsize(n_path) == 0:
+        #     raise ValueError(f"The file for N ({n_path}) must exist and contain valid data.")
             
-        self.N = int(np.load(n_path))
+       
 
         # Helper to check if array files exist AND have actual data in it
         def is_valid_file(filepath):
@@ -36,7 +36,7 @@ class GlobalArrayDSU:
             self.parent = np.load(self.parent_path, mmap_mode='r+')
             self.size = np.load(self.size_path, mmap_mode='r+')
 
-        self.embedding_hashmap = {}
+        
 
     def get_parent_array(self) -> np.ndarray:
         return self.parent
@@ -54,7 +54,7 @@ class GlobalArrayDSU:
         if isinstance(self.size, np.memmap):
             self.size.flush()
 
-    def process_edge_list(self, edges: np.ndarray):
+    def process_edge_list(self, edges: np.ndarray, parent_path: str, size_path: str):
         """
         Ingests edges. Updates happen directly on the disk-backed memmap arrays.
         """
@@ -63,6 +63,8 @@ class GlobalArrayDSU:
             
         for u, v in edges:
             self._union(int(u), int(v))
+
+        self.flush(parent_path, size_path)
 
     def find(self, i: int) -> int:
         if i >= self.N:
