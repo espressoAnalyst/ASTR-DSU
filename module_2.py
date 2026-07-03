@@ -68,7 +68,7 @@ class GlobalArrayDSU:
         if isinstance(self.size, np.memmap):
             self.size.flush()
 
-    def process_edge_list(self, edges: np.ndarray, parent_path: str, size_path: str):
+    def process_edge_list(self, edges: np.ndarray):
         """
         Ingests edges. Updates happen directly on the disk-backed memmap arrays.
         """

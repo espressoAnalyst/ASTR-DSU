@@ -57,12 +57,10 @@ def main():
     )
 
     # 4. Process the batch (Updates happen directly to the files via memmap)
-    dsu.process_edge_list(edges, 
-                          parent_path=PARENT_PATH, 
-                          size_path=SIZE_PATH)
+    dsu.process_edge_list(edges)
 
     # 5. Sync memmap changes strictly to disk
-    dsu.flush()
+    #dsu.flush()
 
 if __name__ == "__main__":
     main()
