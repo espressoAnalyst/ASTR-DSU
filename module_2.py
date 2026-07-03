@@ -1,5 +1,34 @@
 import os
 import numpy as np
+import psutil
+import time
+
+class ResourceTracker:
+    """
+    A context manager to track execution time and System RAM usage.
+    """
+    def __init__(self, operation_name: str, logger_func):
+        self.operation_name = operation_name
+        self.logger_func = logger_func
+        self.process = psutil.Process(os.getpid())
+
+    def __enter__(self):
+        self.start_time = time.perf_counter()
+        # Measure RSS (Resident Set Size) in MB
+        self.start_ram = self.process.memory_info().rss / (1024 * 1024)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        end_time = time.perf_counter()
+        end_ram = self.process.memory_info().rss / (1024 * 1024)
+
+        elapsed_time = end_time - self.start_time
+        ram_diff = end_ram - self.start_ram
+
+        self.logger_func(
+            f"{self.operation_name} -> Time: {elapsed_time:.4f}s | "
+            f"RAM Change: {ram_diff:+.2f} MB | Total RAM: {end_ram:.2f} MB"
+        )
 
 class GlobalArrayDSU:
     def __init__(self, N: int, parent_path: str, size_path: str):
@@ -11,11 +40,16 @@ class GlobalArrayDSU:
         self.parent_path = parent_path
         self.size_path = size_path
 
+
+        with ResourceTracker("Init standard arrays", self.logger):
+            self.parent = np.arange(self.N, dtype=np.int32)
+            self.size = np.ones(self.N, dtype=np.int32)
+
         # Helper to check if array files exist AND have actual data in it
         def is_valid_file(filepath):
             return os.path.exists(filepath) and os.path.getsize(filepath) > 0
 
-        # 2. Scenario A: Array files exist AND have data -> Load via memmap
+        
         if is_valid_file(parent_path) and is_valid_file(size_path):
             # 1. Load the old arrays in read-only mode to check their size
             old_parent = np.load(parent_path, mmap_mode='r')
@@ -24,33 +58,22 @@ class GlobalArrayDSU:
 
             # 2. If the new N is larger, expand the arrays
             if self.N > old_N:
-                # print(f"[*] Expanding arrays from {old_N} to {self.N}...")
-                
-                # Allocate new arrays
-                new_parent = np.arange(self.N, dtype=np.int32)
-                new_size = np.ones(self.N, dtype=np.int32)
 
                 # Copy old data into the first portion
-                new_parent[:old_N] = old_parent
-                new_size[:old_N] = old_size
-
-                # Overwrite the files on disk
-                np.save(self.parent_path, new_parent)
-                np.save(self.size_path, new_size)
-
-            self.parent = np.load(self.parent_path, mmap_mode='r+')
-            self.size = np.load(self.size_path, mmap_mode='r+')
-
-            
-        # 3. Scenario B: Array files don't exist OR are empty (0 bytes) -> Initialize
-        else:
-            np.save(self.parent_path, np.arange(self.N, dtype=np.int32))
-            np.save(self.size_path, np.ones(self.N, dtype=np.int32))
-            
-            self.parent = np.load(self.parent_path, mmap_mode='r+')
-            self.size = np.load(self.size_path, mmap_mode='r+')
+                with ResourceTracker(f"Expand arrays ({old_N} to {self.N})", self.logger):
+                    self.parent[:old_N] = old_parent
+                    self.size[:old_N] = old_size
 
         
+        # Overwrite the files on disk if paths exist
+        if os.path.exists(self.parent_path):
+            np.save(self.parent_path, self.parent)
+        if os.path.exists(self.size_path):
+            np.save(self.size_path, self.size)
+
+    def logger(self, message: str):
+        """Simple logger for debugging."""
+        print(f"[GlobalArrayDSU] {message}")
 
     def get_parent_array(self) -> np.ndarray:
         return self.parent
@@ -60,13 +83,18 @@ class GlobalArrayDSU:
     
     def get_N(self) -> int:
         return self.N
+    
+    def dump(self, parent_path: str, size_path: str):
+        """Dumps the current state of the DSU to disk."""
+        
+        with ResourceTracker("Dump: Path Compression", self.logger):
+            for i in range(self.N):
+                if self.parent[i] != i:
+                    self.find(i)  # Path compression    
 
-    def flush(self):
-        """Forces any pending memory-mapped changes to sync with the disk."""
-        if isinstance(self.parent, np.memmap):
-            self.parent.flush()
-        if isinstance(self.size, np.memmap):
-            self.size.flush()
+        np.save(parent_path, self.parent)
+        np.save(size_path, self.size)
+
 
     def process_edge_list(self, edges: np.ndarray):
         """
@@ -74,11 +102,11 @@ class GlobalArrayDSU:
         """
         if len(edges) == 0:
             return
-            
-        for u, v in edges:
-            self._union(int(u), int(v))
+        
+        with ResourceTracker(f"Process {len(edges)} edges", self.logger):    
+            for u, v in edges:
+                self._union(int(u), int(v))
 
-        self.flush()
 
     def find(self, i: int) -> int:
         if i >= self.N:

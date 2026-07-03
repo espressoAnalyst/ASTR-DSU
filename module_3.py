@@ -61,6 +61,7 @@ def main():
 
     # 5. Sync memmap changes strictly to disk
     #dsu.flush()
+    dsu.dump(PARENT_PATH, SIZE_PATH)
 
 if __name__ == "__main__":
     main()
