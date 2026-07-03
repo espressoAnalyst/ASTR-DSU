@@ -11,28 +11,42 @@ class GlobalArrayDSU:
         self.parent_path = parent_path
         self.size_path = size_path
 
-        # 1. N is strictly loaded from the pre-specified file path
-        # if not os.path.exists(n_path) or os.path.getsize(n_path) == 0:
-        #     raise ValueError(f"The file for N ({n_path}) must exist and contain valid data.")
-            
-       
-
         # Helper to check if array files exist AND have actual data in it
         def is_valid_file(filepath):
             return os.path.exists(filepath) and os.path.getsize(filepath) > 0
 
         # 2. Scenario A: Array files exist AND have data -> Load via memmap
         if is_valid_file(parent_path) and is_valid_file(size_path):
-            self.parent = np.load(parent_path, mmap_mode='r+')
-            self.size = np.load(size_path, mmap_mode='r+')
+            # 1. Load the old arrays in read-only mode to check their size
+            old_parent = np.load(parent_path, mmap_mode='r')
+            old_size = np.load(size_path, mmap_mode='r')
+            old_N = len(old_parent)
+
+            # 2. If the new N is larger, expand the arrays
+            if self.N > old_N:
+                # print(f"[*] Expanding arrays from {old_N} to {self.N}...")
+                
+                # Allocate new arrays
+                new_parent = np.arange(self.N, dtype=np.int32)
+                new_size = np.ones(self.N, dtype=np.int32)
+
+                # Copy old data into the first portion
+                new_parent[:old_N] = old_parent
+                new_size[:old_N] = old_size
+
+                # Overwrite the files on disk
+                np.save(self.parent_path, new_parent)
+                np.save(self.size_path, new_size)
+
+            self.parent = np.load(self.parent_path, mmap_mode='r+')
+            self.size = np.load(self.size_path, mmap_mode='r+')
+
             
         # 3. Scenario B: Array files don't exist OR are empty (0 bytes) -> Initialize
         else:
-            # Create standard arrays based on the loaded N and save them
             np.save(self.parent_path, np.arange(self.N, dtype=np.int32))
             np.save(self.size_path, np.ones(self.N, dtype=np.int32))
             
-            # Re-load them in memmap mode for continuous disk-backed updates
             self.parent = np.load(self.parent_path, mmap_mode='r+')
             self.size = np.load(self.size_path, mmap_mode='r+')
 
@@ -64,7 +78,7 @@ class GlobalArrayDSU:
         for u, v in edges:
             self._union(int(u), int(v))
 
-        self.flush(parent_path, size_path)
+        self.flush()
 
     def find(self, i: int) -> int:
         if i >= self.N:
