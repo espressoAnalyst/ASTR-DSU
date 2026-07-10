@@ -1,17 +1,19 @@
 from src.graph.edge_list_builder import EdgeListBuilder
+import numpy as np
 
 
 def main():
 
     builder = EdgeListBuilder(
         bucket_folder="data/buckets",
-        dtype="uint32",
-        remove_duplicates=False
+        output_folder="data/generated",
+        output_name="combined_edge_list",
+        dtype=np.uint64
     )
 
     edge_list, metadata = builder.build()
 
-    print("\nEdge List")
+    print("\nCombined Edge List")
     print(edge_list)
 
     print("\nMetadata")

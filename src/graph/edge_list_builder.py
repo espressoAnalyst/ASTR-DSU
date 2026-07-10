@@ -7,28 +7,39 @@ class EdgeListBuilder:
     def __init__(
         self,
         bucket_folder,
-        dtype=np.uint32,
-        remove_duplicates=False
+        output_folder,
+        output_name="combined_edge_list",
+        dtype=np.uint64
     ):
         self.bucket_folder = Path(bucket_folder)
+        self.output_folder = Path(output_folder)
+        self.output_name = output_name
         self.dtype = np.dtype(dtype)
-        self.remove_duplicates = remove_duplicates
+
+        self.output_folder.mkdir(
+            parents=True,
+            exist_ok=True
+        )
 
         self.bucket_files = []
+        self.edge_set = set()
         self.total_edges = 0
         self.edge_array = None
         self.metadata = {}
-        self.current_position = 0
 
     def _discover_buckets(self):
-        self.bucket_files = sorted(self.bucket_folder.glob("*.bin"))
+        self.bucket_files = sorted(
+            self.bucket_folder.glob("*.bin")
+        )
 
         if not self.bucket_files:
             raise FileNotFoundError(
                 f"No binary bucket files found in {self.bucket_folder}"
             )
 
-        print(f"Found {len(self.bucket_files)} bucket(s)")
+        print(
+            f"Found {len(self.bucket_files)} bucket(s)"
+        )
 
     def _validate_bucket(self, bucket_path):
         if not bucket_path.exists():
@@ -50,34 +61,6 @@ class EdgeListBuilder:
                 f"{bucket_path.name} is corrupted."
             )
 
-        return file_size
-
-    def _count_total_edges(self):
-        self.total_edges = 0
-
-        bytes_per_edge = self.dtype.itemsize * 2
-
-        for bucket in self.bucket_files:
-            file_size = self._validate_bucket(bucket)
-            num_edges = file_size // bytes_per_edge
-            self.total_edges += num_edges
-
-            print(
-                f"{bucket.name} : {num_edges} edges"
-            )
-
-        print(f"Total Edges : {self.total_edges}")
-
-    def _allocate_global_array(self):
-        self.edge_array = np.empty(
-            (self.total_edges, 2),
-            dtype=self.dtype
-        )
-
-        print(
-            f"Allocated {self.edge_array.nbytes/(1024**2):.4f} MB"
-        )
-
     def _read_bucket(self, bucket_path):
         bucket_edges = np.fromfile(
             bucket_path,
@@ -89,50 +72,73 @@ class EdgeListBuilder:
                 f"{bucket_path.name} contains incomplete edge."
             )
 
-        bucket_edges = bucket_edges.reshape(-1, 2)
+        return bucket_edges.reshape(-1, 2)
 
-        return bucket_edges
+    def _read_and_deduplicate(self):
+        self.edge_set.clear()
 
-    def _merge_bucket(self, bucket_edges):
-        num_edges = len(bucket_edges)
+        for bucket in self.bucket_files:
 
-        start = self.current_position
-        end = start + num_edges
+            self._validate_bucket(bucket)
 
-        if end > self.total_edges:
-            raise RuntimeError(
-                "Edge array overflow."
+            bucket_edges = self._read_bucket(bucket)
+
+            print(
+                f"{bucket.name} : {len(bucket_edges)} edges"
             )
 
-        self.edge_array[start:end] = bucket_edges
+            for u, v in bucket_edges:
 
-        self.current_position = end
+                edge = (
+                    int(min(u, v)),
+                    int(max(u, v))
+                )
 
-    def _remove_duplicate_edges(self):
-        before = len(self.edge_array)
+                self.edge_set.add(edge)
 
-        self.edge_array = np.sort(
-            self.edge_array,
-            axis=1
-        )
-
-        self.edge_array = np.unique(
-            self.edge_array,
-            axis=0
-        )
-
-        self.total_edges = len(self.edge_array)
-
-        after = len(self.edge_array)
+        self.total_edges = len(self.edge_set)
 
         print(
-            f"Duplicate Removal : {before-after} removed"
+            f"Unique Edges : {self.total_edges}"
         )
 
-    def _generate_metadata(self):
+    def _build_edge_array(self):
+        self.edge_array = np.array(
+            list(self.edge_set),
+            dtype=self.dtype
+        )
+
+        print(
+            f"Allocated {self.edge_array.nbytes/(1024**2):.4f} MB"
+        )
+
+    def _save_npy(self):
+        npy_path = self.output_folder / f"{self.output_name}.npy"
+
+        np.save(
+            npy_path,
+            self.edge_array
+        )
+
+        return npy_path
+
+    def _save_bin(self):
+        bin_path = self.output_folder / f"{self.output_name}.bin"
+
+        self.edge_array.tofile(
+            bin_path
+        )
+
+        return bin_path
+
+    def _generate_metadata(
+        self,
+        npy_path,
+        bin_path
+    ):
         self.metadata = {
             "num_buckets": len(self.bucket_files),
-            "num_edges": self.total_edges,
+            "unique_edges": self.total_edges,
             "array_shape": self.edge_array.shape,
             "dtype": str(self.edge_array.dtype),
             "memory_bytes": int(self.edge_array.nbytes),
@@ -141,25 +147,26 @@ class EdgeListBuilder:
                 4
             ),
             "bucket_folder": str(self.bucket_folder),
-            "duplicates_removed": self.remove_duplicates
+            "output_folder": str(self.output_folder),
+            "edge_list_npy_path": str(npy_path),
+            "edge_list_bin_path": str(bin_path)
         }
 
     def build(self):
-        self.current_position = 0
 
         self._discover_buckets()
 
-        self._count_total_edges()
+        self._read_and_deduplicate()
 
-        self._allocate_global_array()
+        self._build_edge_array()
 
-        for bucket in self.bucket_files:
-            edges = self._read_bucket(bucket)
-            self._merge_bucket(edges)
+        npy_path = self._save_npy()
 
-        if self.remove_duplicates:
-            self._remove_duplicate_edges()
+        bin_path = self._save_bin()
 
-        self._generate_metadata()
+        self._generate_metadata(
+            npy_path,
+            bin_path
+        )
 
         return self.edge_array, self.metadata

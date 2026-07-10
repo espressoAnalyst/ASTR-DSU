@@ -18,7 +18,7 @@ bucket1 = np.array(
         [3, 4],
         [4, 5]
     ],
-    dtype=np.uint32
+    dtype=np.uint64
 )
 
 # ------------------------------------
@@ -31,7 +31,7 @@ bucket2 = np.array(
         [7, 8],
         [8, 9]
     ],
-    dtype=np.uint32
+    dtype=np.uint64
 )
 
 # ------------------------------------
@@ -44,7 +44,7 @@ bucket3 = np.array(
         [10, 11],
         [11, 12]
     ],
-    dtype=np.uint32
+    dtype=np.uint64
 )
 
 # ------------------------------------
