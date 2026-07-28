@@ -4,7 +4,8 @@ from module_2 import GlobalArrayDSU
 from module_1 import EdgeListBuilder
 #from placeholder import N
 
-N = 1000000  # Placeholder for the actual value of N
+N = 10   # Placeholder for the actual value of N
+
 
 #edge list function to be modified when module_1 is complete
 def get_edge_list(filepath: str) -> np.ndarray:
@@ -23,31 +24,35 @@ def main():
     PARENT_PATH = "data/global_parent.npy"
     SIZE_PATH = "data/global_size.npy"
     #importing the bucket folder path for the edge list builder from module 1
-    BUCKET_FOLDER = "data/buckets"
+    # BUCKET_FOLDER = "data/buckets"
     
-    #EDGES_PATH = "data/batch_edges.npy"
+    # #EDGES_PATH = "data/batch_edges.npy"
 
-    # 2. Fetch edge list (from module 1)
-    builder = EdgeListBuilder(
-        bucket_folder=BUCKET_FOLDER,
-        dtype="uint32",
-        remove_duplicates=False
-    )
+    # # 2. Fetch edge list (from module 1)
+    # builder = EdgeListBuilder(
+    #     bucket_folder=BUCKET_FOLDER,
+    #     dtype="uint32",
+    #     remove_duplicates=False
+    # )
 
-    edge_list, metadata = builder.build()
+    # edge_list, metadata = builder.build()
 
-    print("\nEdge List")
-    print(edge_list)
+    # print("\nEdge List")
+    # print(edge_list)
 
-    print("\nMetadata")
-    for key, value in metadata.items():
-        print(f"{key}: {value}")
-    #edges = get_edge_list(EDGES_PATH)
+    # print("\nMetadata")
+    # for key, value in metadata.items():
+    #     print(f"{key}: {value}")
+    # #edges = get_edge_list(EDGES_PATH)
 
-    #For now, we will use the edge_list generated from module 1 as the edges to process
-    #module 1 will require some modifications to save the edge list to a file, which will be used here in the future
+    # #For now, we will use the edge_list generated from module 1 as the edges to process
+    # #module 1 will require some modifications to save the edge list to a file, which will be used here in the future
     
-    edges = edge_list
+    # edges = edge_list
+
+    edges = [[1,2],[2,3],[3,4],[5,6],[6,7]]
+    #if the last one was only [9], it crashed as it expected u,v both so we would need to self loop the singletons, or handle this case in module_1, or not put the singletons in the edge list.
+
 
     # 3. Instantiate DSU
     dsu = GlobalArrayDSU(

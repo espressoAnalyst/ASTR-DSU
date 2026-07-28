@@ -1,34 +1,6 @@
 import os
 import numpy as np
-import psutil
-import time
-
-class ResourceTracker:
-    """
-    A context manager to track execution time and System RAM usage.
-    """
-    def __init__(self, operation_name: str, logger_func):
-        self.operation_name = operation_name
-        self.logger_func = logger_func
-        self.process = psutil.Process(os.getpid())
-
-    def __enter__(self):
-        self.start_time = time.perf_counter()
-        # Measure RSS (Resident Set Size) in MB
-        self.start_ram = self.process.memory_info().rss / (1024 * 1024)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        end_time = time.perf_counter()
-        end_ram = self.process.memory_info().rss / (1024 * 1024)
-
-        elapsed_time = end_time - self.start_time
-        ram_diff = end_ram - self.start_ram
-
-        self.logger_func(
-            f"{self.operation_name} -> Time: {elapsed_time:.4f}s | "
-            f"RAM Change: {ram_diff:+.2f} MB | Total RAM: {end_ram:.2f} MB"
-        )
+from logger import ResourceTracker
 
 class GlobalArrayDSU:
     def __init__(self, N: int, parent_path: str, size_path: str):
@@ -63,6 +35,8 @@ class GlobalArrayDSU:
                 with ResourceTracker(f"Expand arrays ({old_N} to {self.N})", self.logger):
                     self.parent[:old_N] = old_parent
                     self.size[:old_N] = old_size
+
+            del old_parent, old_size  # Free memory
 
         
         # Overwrite the files on disk if paths exist
