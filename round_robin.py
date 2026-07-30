@@ -17,7 +17,7 @@ def assign_centroids(centroids: np.ndarray, cmap: dict) -> None:
 
     # Distribute cluster IDs via round-robin and save to individual pkl files
     for i, centroid_name in enumerate(centroids):
-        # Python slicing with step size handles the round-robin distribution
+        # Python slicing with step size handles the round-robin
         assigned_cluster_ids = cluster_ids[i::num_centroids]
 
         # File named after the centroid itself
